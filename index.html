@@ -98,8 +98,18 @@
       position: relative;
       width: 100%;
       aspect-ratio: 2 / 3.35;
-      transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: transform 0.95s cubic-bezier(0.19, 1, 0.22, 1), filter 0.45s ease;
       transform-style: preserve-3d;
+      will-change: transform;
+    }
+
+    .deck-stage:not(.is-revealed):not(.is-animating):hover .card-inner {
+      transform: translateY(-6px);
+    }
+
+    .card-inner.is-lifting {
+      transform: translateY(-16px) scale(1.035);
+      filter: drop-shadow(0 24px 36px rgba(196, 164, 114, 0.28));
     }
 
     .card-inner.is-flipped {
@@ -107,14 +117,67 @@
     }
 
     .card-inner.is-shuffling {
-      animation: subtleShake 0.48s ease-in-out;
+      animation: centerShuffle 0.78s cubic-bezier(0.45, 0.05, 0.55, 0.95);
     }
 
-    @keyframes subtleShake {
-      0%, 100% { transform: translateY(0) rotate(0deg); }
-      25% { transform: translateY(-7px) rotate(-1.8deg); }
-      50% { transform: translateY(-2px) rotate(1.8deg); }
-      75% { transform: translateY(-5px) rotate(-1deg); }
+    @keyframes centerShuffle {
+      0%   { transform: translateY(0) scale(1) rotate(0deg); }
+      20%  { transform: translateY(-10px) scale(1.02) rotate(-1.6deg); }
+      45%  { transform: translateY(-4px) scale(0.99) rotate(1.8deg); }
+      70%  { transform: translateY(-12px) scale(1.03) rotate(-1deg); }
+      100% { transform: translateY(-14px) scale(1.035) rotate(0deg); }
+    }
+
+    .fanned-card-left.is-shuffling {
+      animation: shuffleFanLeft 0.78s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+    }
+
+    .fanned-card-right.is-shuffling {
+      animation: shuffleFanRight 0.78s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+    }
+
+    @keyframes shuffleFanLeft {
+      0%   { transform: rotate(-7deg) translateX(-22px) translateY(8px); opacity: 0.75; }
+      28%  { transform: rotate(-16deg) translateX(-62px) translateY(-4px); opacity: 0.9; }
+      55%  { transform: rotate(4deg) translateX(18px) translateY(4px) scale(0.97); opacity: 0.8; }
+      82%  { transform: rotate(-10deg) translateX(-34px) translateY(2px); opacity: 0.7; }
+      100% { transform: rotate(0deg) translateX(0px) translateY(4px) scale(0.94); opacity: 0; }
+    }
+
+    @keyframes shuffleFanRight {
+      0%   { transform: rotate(7deg) translateX(22px) translateY(8px); opacity: 0.75; }
+      28%  { transform: rotate(16deg) translateX(62px) translateY(-4px); opacity: 0.9; }
+      55%  { transform: rotate(-4deg) translateX(-18px) translateY(4px) scale(0.97); opacity: 0.8; }
+      82%  { transform: rotate(10deg) translateX(34px) translateY(2px); opacity: 0.7; }
+      100% { transform: rotate(0deg) translateX(0px) translateY(4px) scale(0.94); opacity: 0; }
+    }
+
+    .card-sheen {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(115deg, transparent 28%, rgba(255, 248, 232, 0.48) 50%, transparent 72%);
+      transform: translateX(-130%);
+      opacity: 0;
+    }
+
+    .card-sheen.play-sheen {
+      animation: goldSheen 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes goldSheen {
+      0%   { transform: translateX(-130%); opacity: 0; }
+      20%  { opacity: 1; }
+      100% { transform: translateX(130%); opacity: 0; }
+    }
+
+    .panel-reveal {
+      animation: panelRevealUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes panelRevealUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     .card-face {
@@ -263,17 +326,6 @@
           </div>
         </div>
 
-        <!-- Test Mode Banner -->
-        <div id="testModeBanner" class="hidden mt-6 bg-goldLight border border-gold/35 rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div class="flex items-center gap-2.5 text-sm text-ink">
-            <i data-lucide="flask-conical" class="w-4 h-4 text-goldDark shrink-0"></i>
-            <span><strong>Modo de simulação ativo:</strong> esta carta é um sorteio de teste e não substitui sua carta oficial da semana.</span>
-          </div>
-          <button id="returnRealCardBtn" type="button" class="text-xs font-semibold text-goldDark hover:text-ink underline underline-offset-2 shrink-0 self-start sm:self-auto">
-            Voltar à carta da semana
-          </button>
-        </div>
-
         <!-- Card + Reading Split -->
         <div class="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-10 items-start pt-8">
           <!-- Left: Interactive Card Column -->
@@ -314,6 +366,7 @@
                         alt=""
                         class="w-full h-full object-cover block"
                       />
+                      <div id="cardRevealSheen" class="card-sheen"></div>
 
                       <!-- Faithful Ezra-Style Fallback (shown only if remote image fails to load) -->
                       <div id="cardFaceFallback" class="hidden absolute inset-0 flex flex-col justify-between bg-[#C7D4DC]">
@@ -343,6 +396,11 @@
               </div>
             </div>
 
+            <!-- Live Draw Phase Status -->
+            <p id="drawPhaseStatus" class="hidden mt-4 text-xs tracking-[0.14em] uppercase text-gold font-medium text-center transition-opacity">
+              Embaralhando as 78 cartas...
+            </p>
+
             <!-- Action Controls Under Card -->
             <div id="preDrawControls" class="w-full max-w-[276px] mt-5 space-y-3">
               <button id="drawWeeklyBtn" type="button" class="w-full py-3 px-4 rounded-xl bg-gold text-[#141210] dark:text-[#141210] font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-sm">
@@ -364,16 +422,7 @@
                 <i data-lucide="copy" class="w-4 h-4 text-gold"></i>
                 Copiar leitura
               </button>
-              <div class="grid grid-cols-2 gap-2">
-                <button id="simulateDrawBtn" type="button" class="py-2 px-3 rounded-xl bg-paper border border-stoneBorder text-ink text-xs font-medium hover:border-gold transition-colors flex items-center justify-center gap-1.5">
-                  <i data-lucide="shuffle" class="w-3.5 h-3.5 text-gold"></i>
-                  Testar sorteio
-                </button>
-                <button id="resetWeekBtn" type="button" class="py-2 px-3 rounded-xl bg-stoneSoft text-taupe text-xs font-medium hover:text-ink hover:bg-stoneBorder/70 transition-colors flex items-center justify-center gap-1.5">
-                  <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                  Redefinir semana
-                </button>
-              </div>
+
             </div>
           </div>
 
@@ -953,6 +1002,7 @@
       allowReversed: persisted.allowReversed,
       simulatedDraw: null,
       previewRotated: false,
+      isAnimating: false,
       deckFilter: 'all',
       deckSearch: '',
       confirmCallback: null,
@@ -1073,44 +1123,113 @@
     }
 
     function performWeeklyDraw(isSimulation = false) {
-      const cardInner = document.getElementById('tarotCardInner');
+      if (state.isAnimating) return;
       if (!isSimulation && getCurrentOfficialDraw()) return;
 
+      const deckStage = document.getElementById('deckStage');
+      const cardInner = document.getElementById('tarotCardInner');
+      const fannedLeft = document.getElementById('fannedLeft');
+      const fannedRight = document.getElementById('fannedRight');
+      const statusEl = document.getElementById('drawPhaseStatus');
+      const drawBtn = document.getElementById('drawWeeklyBtn');
+      const sheenEl = document.getElementById('cardRevealSheen');
+      const postPanel = document.getElementById('postDrawPanel');
+
+      state.isAnimating = true;
       state.previewRotated = false;
-      cardInner.classList.remove('is-flipped');
-      cardInner.classList.add('is-shuffling');
+      deckStage.classList.add('is-animating');
+      if (drawBtn) drawBtn.disabled = true;
 
+      const wasFlipped = cardInner.classList.contains('is-flipped');
+      const preDelay = wasFlipped ? 420 : 0;
+
+      // Se já havia carta revelada (modo teste), vira suavemente de volta para o verso antes de embaralhar
+      if (wasFlipped) {
+        cardInner.classList.remove('is-flipped');
+        fannedLeft.classList.remove('opacity-0');
+        fannedRight.classList.remove('opacity-0');
+      }
+
+      if (statusEl) {
+        statusEl.textContent = 'Embaralhando as 78 cartas...';
+        statusEl.classList.remove('hidden');
+      }
+
+      // Fase 1: Embaralhamento físico das cartas em leque
       setTimeout(() => {
-        cardInner.classList.remove('is-shuffling');
-        const { card, reversed } = pickRandomCard();
-        const nowIso = new Date().toISOString();
+        cardInner.classList.remove('is-shuffling', 'is-lifting');
+        fannedLeft.classList.remove('is-shuffling', 'opacity-0');
+        fannedRight.classList.remove('is-shuffling', 'opacity-0');
+        void cardInner.offsetWidth;
 
-        const drawObj = {
-          id: `${state.weekInfo.weekKey}-${Date.now()}`,
-          weekKey: state.weekInfo.weekKey,
-          weekRangeLabel: state.weekInfo.rangeLabel,
-          cardId: card.id,
-          reversed,
-          drawnAt: nowIso,
-          note: ''
-        };
+        cardInner.classList.add('is-shuffling');
+        fannedLeft.classList.add('is-shuffling');
+        fannedRight.classList.add('is-shuffling');
 
-        if (isSimulation) {
-          state.simulatedDraw = drawObj;
-          showToast(`Simulação: ${card.name}`);
-        } else {
-          state.simulatedDraw = null;
-          state.weeklyDraws[state.weekInfo.weekKey] = drawObj;
-          state.history = state.history.filter(h => h.weekKey !== state.weekInfo.weekKey);
-          state.history.unshift(drawObj);
-          savePersistedState();
-          showToast(`Carta da semana revelada: ${card.name}`);
-        }
+        // Fase 2: Elevação de expectativa + pré-carregamento da carta sorteada
+        setTimeout(() => {
+          if (statusEl) statusEl.textContent = 'Revelando sua carta...';
+          cardInner.classList.remove('is-shuffling');
+          fannedLeft.classList.remove('is-shuffling');
+          fannedRight.classList.remove('is-shuffling');
+          fannedLeft.classList.add('opacity-0');
+          fannedRight.classList.add('opacity-0');
+          cardInner.classList.add('is-lifting');
 
-        renderWeeklyView();
-        renderHistoryView();
-        updateHistoryBadge();
-      }, 460);
+          const { card, reversed } = pickRandomCard();
+          const nowIso = new Date().toISOString();
+
+          const drawObj = {
+            id: `${state.weekInfo.weekKey}-${Date.now()}`,
+            weekKey: state.weekInfo.weekKey,
+            weekRangeLabel: state.weekInfo.rangeLabel,
+            cardId: card.id,
+            reversed,
+            drawnAt: nowIso,
+            note: ''
+          };
+
+          if (isSimulation) {
+            state.simulatedDraw = drawObj;
+          } else {
+            state.simulatedDraw = null;
+            state.weeklyDraws[state.weekInfo.weekKey] = drawObj;
+            state.history = state.history.filter(h => h.weekKey !== state.weekInfo.weekKey);
+            state.history.unshift(drawObj);
+            savePersistedState();
+          }
+
+          // Fase 3: Virada 3D + brilho dourado + entrada suave do painel de leitura
+          setTimeout(() => {
+            cardInner.classList.remove('is-lifting');
+            renderWeeklyView();
+            renderHistoryView();
+            updateHistoryBadge();
+
+            if (postPanel) {
+              postPanel.classList.remove('panel-reveal');
+              void postPanel.offsetWidth;
+              postPanel.classList.add('panel-reveal');
+            }
+
+            if (sheenEl) {
+              sheenEl.classList.remove('play-sheen');
+              setTimeout(() => {
+                void sheenEl.offsetWidth;
+                sheenEl.classList.add('play-sheen');
+              }, 360);
+            }
+
+            setTimeout(() => {
+              state.isAnimating = false;
+              deckStage.classList.remove('is-animating');
+              if (statusEl) statusEl.classList.add('hidden');
+              if (drawBtn) drawBtn.disabled = false;
+              showToast(isSimulation ? `Simulação: ${card.name}` : `Carta da semana revelada: ${card.name}`);
+            }, 520);
+          }, 260);
+        }, 760);
+      }, preDelay);
     }
 
     // =========================================================================
@@ -1180,13 +1299,13 @@
       const postControls = document.getElementById('postDrawControls');
       const prePanel = document.getElementById('preDrawPanel');
       const postPanel = document.getElementById('postDrawPanel');
-      const testBanner = document.getElementById('testModeBanner');
       const reflectionCard = document.getElementById('reflectionCard');
       const fannedLeft = document.getElementById('fannedLeft');
       const fannedRight = document.getElementById('fannedRight');
       const rotateBtn = document.getElementById('toggleRotateArtBtn');
 
-      testBanner.classList.toggle('hidden', !isSim);
+      const deckStage = document.getElementById('deckStage');
+      if (deckStage) deckStage.classList.toggle('is-revealed', Boolean(activeDraw));
 
       if (!activeDraw) {
         cardInner.classList.remove('is-flipped');
@@ -1575,30 +1694,6 @@
       });
 
       document.getElementById('copyReadingBtn').addEventListener('click', copyCurrentReading);
-      document.getElementById('simulateDrawBtn').addEventListener('click', () => performWeeklyDraw(true));
-      document.getElementById('returnRealCardBtn').addEventListener('click', () => {
-        state.simulatedDraw = null;
-        state.previewRotated = false;
-        renderWeeklyView();
-      });
-
-      document.getElementById('resetWeekBtn').addEventListener('click', () => {
-        openConfirmModal(
-          'Redefinir carta desta semana?',
-          'Isso removerá a trava da semana atual para que você possa realizar um novo sorteio oficial.',
-          () => {
-            delete state.weeklyDraws[state.weekInfo.weekKey];
-            state.simulatedDraw = null;
-            state.previewRotated = false;
-            state.history = state.history.filter(h => h.weekKey !== state.weekInfo.weekKey);
-            savePersistedState();
-            renderWeeklyView();
-            renderHistoryView();
-            updateHistoryBadge();
-            showToast('Sorteio da semana redefinido');
-          }
-        );
-      });
 
       document.getElementById('weeklyNoteInput').addEventListener('input', (e) => {
         const official = getCurrentOfficialDraw();
